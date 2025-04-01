@@ -5,7 +5,7 @@
       <uri>x500</uri>
     </include>
     <include merge='true'>
-      <uri>https://fuel.gazebosim.org/1.0/RudisLaboratories/models/OakD-Lite</uri>
+      <uri>model://OakD-Lite</uri>
       <pose>.12 .03 .242 0 0 0</pose>
     </include>
     <joint name="CameraJoint" type="fixed">
