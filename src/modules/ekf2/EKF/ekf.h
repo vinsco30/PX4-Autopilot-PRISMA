@@ -54,6 +54,16 @@
 #include <uORB/topics/estimator_aid_source2d.h>
 #include <uORB/topics/estimator_aid_source3d.h>
 
+//Libraries for uORB topics for LoadCell Fusion
+#if defined(CONFIG_EKF2_LOAD_CELL)
+#include <uORB/uORB.h>
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/actuator_motors.h>
+#include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/vehicle_thrust_setpoint.h>
+#include <deque>
+#endif
+
 enum class Likelihood { LOW, MEDIUM, HIGH };
 
 class Ekf final : public EstimatorInterface
@@ -518,6 +528,8 @@ private:
 	void updateHorizontalDeadReckoningstatus();
 	void updateVerticalDeadReckoningStatus();
 
+	//TO ADD: it may be needed to add the subscription to actuator_motors, thrust ecc...
+
 	struct StateResetCounts {
 		uint8_t velNE{0};	///< number of horizontal position reset events (allow to wrap if count exceeds 255)
 		uint8_t velD{0};	///< number of vertical velocity reset events (allow to wrap if count exceeds 255)
@@ -591,6 +603,13 @@ private:
 	Vector2f _drag_innov_var{};	///< multirotor drag measurement innovation variance ((m/sec**2)**2)
 #endif // CONFIG_EKF2_DRAG_FUSION
 
+#if defined(CONFIG_EKF2_LOAD_CELL)
+	float _load_cell_innov{0.0f};	///< load cell measurement innovation (m)
+	float _load_cell_innov_var{0.0f};	///< load cell measurement innovation variance ((m)**2)
+	float measured_force_z_filtered{0.0f};	///< load cell measurement (m)
+	float alpha_load_cell{0.2f};	///< low pass filter time constant for load cell measurement (sec)
+#endif // CONFIG_EKF2_LOAD_CELL
+
 #if defined(CONFIG_EKF2_RANGE_FINDER)
 	estimator_aid_source1d_s _aid_src_rng_hgt{};
 
@@ -601,6 +620,7 @@ private:
 	float _hagl_test_ratio{}; // height above terrain measurement innovation consistency check ratio
 
 	uint64_t _time_last_healthy_rng_data{0};
+
 
 	// Terrain height state estimation
 	float _terrain_vpos{0.0f};		///< estimated vertical position of the terrain underneath the vehicle in local NED frame (m)
@@ -1054,6 +1074,15 @@ private:
 	void controlAuxVelFusion();
 	void stopAuxVelFusion();
 #endif // CONFIG_EKF2_AUXVEL
+
+#if defined(CONFIG_EKF2_LOAD_CELL)
+	void controlLoadCellFUsion();
+	void fuseLoadCell(const loadCellSample &loadCell_Sample,const float accel_z,const float vel_z_old);
+	float compute_thrust_z();
+ 	float predict_force_z(const float mass, float total_thrust, const float accel_z);
+ 	void updateAccelZBuffer(float accel_z); 
+    float filterAccelZ();
+#endif // CONFIG_EKF2_LOAD_CELL
 
 	void checkVerticalAccelerationHealth(const imuSample &imu_delayed);
 	Likelihood estimateInertialNavFallingLikelihood() const;

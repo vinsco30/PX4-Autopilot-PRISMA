@@ -136,6 +136,10 @@ void Ekf::controlFusionModes(const imuSample &imu_delayed)
 	controlAuxVelFusion();
 #endif // CONFIG_EKF2_AUXVEL
 
+#if defined(CONFIG_EKF2_LOAD_CELL)
+	controlLoadCellFusion();
+#endif // CONFIG_EKF2_LOAD_CELL
+
 	controlZeroInnovationHeadingUpdate();
 
 	controlZeroVelocityUpdate();

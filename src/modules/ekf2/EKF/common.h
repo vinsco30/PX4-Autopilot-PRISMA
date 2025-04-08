@@ -227,6 +227,16 @@ struct flowSample {
 	uint8_t     quality{};     ///< quality indicator between 0 and 255
 };
 
+#if defined(CONFIG_EKF2_LOAD_CELL)
+struct loadCellSample {
+	uint64_t time_us{};
+	Vector3f force{};
+	Vector3f torque{};
+	Vector3f force_var{};
+	Vector3f torque_var{};
+};
+#endif // CONFIG_EKF2_LOAD_CELL
+
 #if defined(CONFIG_EKF2_EXTERNAL_VISION)
 struct extVisionSample {
 	uint64_t    time_us{};     ///< timestamp of the measurement (uSec)
@@ -483,6 +493,17 @@ struct parameters {
 	const float auxvel_noise{0.5f};         ///< minimum observation noise, uses reported noise if greater (m/s)
 	const float auxvel_gate{5.0f};          ///< velocity fusion innovation consistency gate size (STD)
 #endif // CONFIG_EKF2_AUXVEL
+
+#if defined(CONFIG_EKF2_LOAD_CELL)
+	float load_cell_pos_x{0.0f};            ///< X position of the load cell in body frame (m)
+	float load_cell_pos_y{0.0f};            ///< Y position of the load cell in body frame (m)
+	float load_cell_pos_z{0.0f};            ///< Z position of the load cell in body frame (m)
+	float load_cell_delay{0.0f};           ///< load cell measurement delay relative to the IMU (mSec)
+	float load_cell_noise{0.1f};           ///< observation noise for load cell measurements (m)
+	float load_cell_innov_gate{5.0f};     ///< load cell fusion innovation consistency gate size (STD)
+	float load_cell_scale{1.0f};           ///< scale factor for load cell measurements (N/V)
+	int32_t load_cell_ctrl{0};           ///< bitmask used to control the use of load cell measurements
+#endif // CONFIG_EKF2_LOAD_CELL
 
 	// compute synthetic magnetomter Z value if possible
 	int32_t synthesize_mag_z{0};
