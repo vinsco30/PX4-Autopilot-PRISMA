@@ -47,6 +47,9 @@ publications:
   - topic: /fmu/out/vehicle_trajectory_waypoint_desired
     type: px4_msgs::msg::VehicleTrajectoryWaypoint
 
+  - topic: /fmu/out/external_wrench_estimation
+    type: px4_msgs::msg::ExternalWrenchEstimation
+
 subscriptions:
 
   - topic: /fmu/in/offboard_control_mode
@@ -87,3 +90,6 @@ subscriptions:
 
   - topic: /fmu/in/vehicle_trajectory_waypoint
     type: px4_msgs::msg::VehicleTrajectoryWaypoint
+
+  - topic: /fmu/in/load_cell_data
+    type: px4_msgs::msg::LoadCellData

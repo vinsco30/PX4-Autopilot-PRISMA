@@ -62,7 +62,7 @@
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/vehicle_thrust_setpoint.h>
 #include <deque>
-#endif
+#endif // CONFIG_EKF2_LOAD_CELL
 
 enum class Likelihood { LOW, MEDIUM, HIGH };
 
@@ -529,6 +529,15 @@ private:
 	void updateVerticalDeadReckoningStatus();
 
 	//TO ADD: it may be needed to add the subscription to actuator_motors, thrust ecc...
+#if defined(CONFIG_EKF2_LOAD_CELL)
+    uORB::Subscription actuator_motors_sub{ORB_ID(actuator_motors)};
+	uORB::Subscription actuator_outputs_sub{ORB_ID(actuator_outputs)};
+	uORB::Subscription vehicle_thrust_setpoint_sub{ORB_ID(vehicle_thrust_setpoint)};
+	orb_advert_t _wrench_pub{nullptr};
+	std::deque<float> accel_z_buffer; // Buffer circolare per i valori recenti di accel_z
+    int window_size = 10;
+
+#endif // CONFIG_EKF2_LOAD_CELL
 
 	struct StateResetCounts {
 		uint8_t velNE{0};	///< number of horizontal position reset events (allow to wrap if count exceeds 255)
@@ -604,10 +613,10 @@ private:
 #endif // CONFIG_EKF2_DRAG_FUSION
 
 #if defined(CONFIG_EKF2_LOAD_CELL)
-	float _load_cell_innov{0.0f};	///< load cell measurement innovation (m)
-	float _load_cell_innov_var{0.0f};	///< load cell measurement innovation variance ((m)**2)
-	float measured_force_z_filtered{0.0f};	///< load cell measurement (m)
-	float alpha_load_cell{0.2f};	///< low pass filter time constant for load cell measurement (sec)
+	float _load_innov{0.0f};	///< load cell measurement innovation (m)
+	float _load_innov_var{0.0f};	///< load cell measurement innovation variance ((m)**2)
+	float mea_force_z_filtered = 0.0f;	///< load cell measurement (m)
+	float alpha_load_cell_filter = 0.2f;	///< low pass filter time constant for load cell measurement (sec)
 #endif // CONFIG_EKF2_LOAD_CELL
 
 #if defined(CONFIG_EKF2_RANGE_FINDER)
@@ -1076,7 +1085,7 @@ private:
 #endif // CONFIG_EKF2_AUXVEL
 
 #if defined(CONFIG_EKF2_LOAD_CELL)
-	void controlLoadCellFUsion();
+	void controlLoadCellFusion();
 	void fuseLoadCell(const loadCellSample &loadCell_Sample,const float accel_z,const float vel_z_old);
 	float compute_thrust_z();
  	float predict_force_z(const float mass, float total_thrust, const float accel_z);

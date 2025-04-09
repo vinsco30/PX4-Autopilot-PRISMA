@@ -229,11 +229,11 @@ struct flowSample {
 
 #if defined(CONFIG_EKF2_LOAD_CELL)
 struct loadCellSample {
-	uint64_t time_us{};
-	Vector3f force{};
-	Vector3f torque{};
-	Vector3f force_var{};
-	Vector3f torque_var{};
+	uint64_t    time_us{};     
+	Vector3f    force{}; 
+	Vector3f    torque{};
+	Vector3f    force_var{}; 
+	Vector3f    torque_var{};
 };
 #endif // CONFIG_EKF2_LOAD_CELL
 
@@ -499,8 +499,8 @@ struct parameters {
 	float load_cell_pos_y{0.0f};            ///< Y position of the load cell in body frame (m)
 	float load_cell_pos_z{0.0f};            ///< Z position of the load cell in body frame (m)
 	float load_cell_delay{0.0f};           ///< load cell measurement delay relative to the IMU (mSec)
-	float load_cell_noise{0.1f};           ///< observation noise for load cell measurements (m)
-	float load_cell_innov_gate{5.0f};     ///< load cell fusion innovation consistency gate size (STD)
+	float load_cell_noise{0.05f};           ///< observation noise for load cell measurements (m)
+	float load_cell_gate{3.0f};     ///< load cell fusion innovation consistency gate size (STD)
 	float load_cell_scale{1.0f};           ///< scale factor for load cell measurements (N/V)
 	int32_t load_cell_ctrl{0};           ///< bitmask used to control the use of load cell measurements
 #endif // CONFIG_EKF2_LOAD_CELL
