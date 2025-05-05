@@ -70,13 +70,21 @@ class Ekf final : public EstimatorInterface
 {
 public:
 	static constexpr uint8_t _k_num_states{24};		///< number of EKF states
+	static constexpr uint8_t _k_num_states_aug{27};		///< number of EKF augmented states
 
 	typedef matrix::Vector<float, _k_num_states> Vector24f;
+	typedef matrix::Vector<float, _k_num_states_aug> Vector27f;
 	typedef matrix::SquareMatrix<float, _k_num_states> SquareMatrix24f;
+	typedef matrix::SquareMatrix<float, _k_num_states_aug> SquareMatrix27f;
 	typedef matrix::SquareMatrix<float, 2> Matrix2f;
 	template<int ... Idxs>
 
 	using SparseVector24f = matrix::SparseVectorf<24, Idxs...>;
+	//VS: check if it is needed
+	template<int ... Idxs>
+
+	using SparseVector27f = matrix::SparseVectorf<27, Idxs...>;
+
 
 	Ekf()
 	{
@@ -275,6 +283,9 @@ public:
 
 	// get the state vector at the delayed time horizon
 	matrix::Vector<float, 24> getStateAtFusionHorizonAsVector() const;
+	
+	//VS: get the AUGMENTED state vector at the delayed time horizon
+	matrix::Vector<float, 27> getStateAtFusionHorizonAsVector_Aug() const;
 
 	// get the wind velocity in m/s
 	const Vector2f &getWindVelocity() const { return _state.wind_vel; };
@@ -284,9 +295,13 @@ public:
 
 	// get the full covariance matrix
 	const matrix::SquareMatrix<float, 24> &covariances() const { return P; }
+	//VS: get the full covariance matrix for augmented states
+	const matrix::SquareMatrix<float, 27> &covariances_aug() const { return P_aug; }
 
 	// get the diagonal elements of the covariance matrix
 	matrix::Vector<float, 24> covariances_diagonal() const { return P.diag(); }
+	//VS: get the diagonal elements of the augmented covariance matrix
+	matrix::Vector<float, 27> covariances_diagonal_aug() const { return P_aug.diag(); }
 
 	// get the orientation (quaterion) covariances
 	matrix::SquareMatrix<float, 4> orientation_covariances() const { return P.slice<4, 4>(0, 0); }
@@ -296,6 +311,18 @@ public:
 
 	// get the position covariances
 	matrix::SquareMatrix<float, 3> position_covariances() const { return P.slice<3, 3>(7, 7); }
+
+	//VS: get the orientation (quaterion) covariances from augmented states
+	matrix::SquareMatrix<float, 4> orientation_covariances() const { return P_aug.slice<4, 4>(0, 0); }
+
+	//VS: get the linear velocity covariances from augmented states
+	matrix::SquareMatrix<float, 3> velocity_covariances() const { return P_aug.slice<3, 3>(7, 7); }
+
+	//VS: get the position covariances from augmented states
+	matrix::SquareMatrix<float, 3> position_covariances() const { return P_aug.slice<3, 3>(10, 10); }
+
+	//VS: get the linear acceleration covariances from augmented states
+	matrix::SquareMatrix<float, 3> acceleration_covariances() const { return P_aug.slice<3, 3>(4, 4); }
 
 	// ask estimator for sensor data collection decision and do any preprocessing if required, returns true if not defined
 	bool collect_gps(const gpsMessage &gps) override;
@@ -329,6 +356,13 @@ public:
 	Vector3f getVelocityVariance() const { return P.slice<3, 3>(4, 4).diag(); };
 
 	Vector3f getPositionVariance() const { return P.slice<3, 3>(7, 7).diag(); }
+
+	//VS: get the velocity variance vector from augmented states
+	Vector3f getVelocityVariance_Aug() const { return P_aug.slice<3, 3>(7, 7).diag(); };
+	//VS: get the position variance vector from augmented states
+	Vector3f getPositionVariance_Aug() const { return P_aug.slice<3, 3>(10, 10).diag(); }
+	//VS: get the acceleration variance vector from augmented states
+	Vector3f getAccelerationVariance_Aug() const { return P_aug.slice<3, 3>(4, 4).diag(); }
 
 	// First argument returns GPS drift  metrics in the following array locations
 	// 0 : Horizontal position drift rate (m/s)
@@ -376,11 +410,17 @@ public:
 	Vector3f getGyroBias() const { return _state.delta_ang_bias / _dt_ekf_avg; } // get the gyroscope bias in rad/s
 	Vector3f getGyroBiasVariance() const { return Vector3f{P(10, 10), P(11, 11), P(12, 12)} / sq(_dt_ekf_avg); } // get the gyroscope bias variance in rad/s
 	float getGyroBiasLimit() const { return _params.gyro_bias_lim; }
+	//VS: gyro bias (states 13, 14, 15) from augmented states
+	Vector3f getGyroBias_Aug() const { return _state_aug.delta_ang_bias / _dt_ekf_avg; }
+	Vector3f getGyroBiasVariance_Aug() const { return Vector3f{P_aug(13, 13), P_aug(14, 14), P_aug(14, 14)} / sq(_dt_ekf_avg); }
 
 	// accel bias (states 13, 14, 15)
 	Vector3f getAccelBias() const { return _state.delta_vel_bias / _dt_ekf_avg; } // get the accelerometer bias in m/s**2
 	Vector3f getAccelBiasVariance() const { return Vector3f{P(13, 13), P(14, 14), P(15, 15)} / sq(_dt_ekf_avg); } // get the accelerometer bias variance in m/s**2
 	float getAccelBiasLimit() const { return _params.acc_bias_lim; }
+	//VS: accel bias (states 16, 17, 18) from augmented states
+	Vector3f getAccelBias_Aug() const { return _state_aug.delta_vel_bias / _dt_ekf_avg; }
+	Vector3f getAccelBiasVariance_Aug() const { return Vector3f{P_aug(16, 16), P_aug(17, 17), P_aug(18, 18)} / sq(_dt_ekf_avg); }
 
 	// mag bias (states 19, 20, 21)
 	const Vector3f &getMagBias() const { return _state.mag_B; }
@@ -393,10 +433,21 @@ public:
 		return _saved_mag_bf_variance;
 	}
 	float getMagBiasLimit() const { return 0.5f; } // 0.5 Gauss
+	//VS: mag bias (states 22, 23, 24) from augmented states
+	const Vector3f &getMagBias_Aug() const { return _state_aug.mag_B; }
+	Vector3f getMagBiasVariance_Aug() const
+	{
+		if (_control_status.flags.mag_3D) {
+			return Vector3f{P_aug(22, 22), P_aug(23, 23), P_aug(24, 24)};
+		}
+
+		return _saved_mag_bf_variance;
+	}
 
 	bool accel_bias_inhibited() const { return _accel_bias_inhibit[0] || _accel_bias_inhibit[1] || _accel_bias_inhibit[2]; }
 	bool gyro_bias_inhibited() const { return _gyro_bias_inhibit[0] || _gyro_bias_inhibit[1] || _gyro_bias_inhibit[2]; }
-
+	//TODO
+	//VS: CHECK if _state_reset_status is needed
 	const auto &state_reset_status() const { return _state_reset_status; }
 
 	// return the amount the local vertical position changed in the last reset and the number of reset events
@@ -563,6 +614,7 @@ private:
 	Vector3f _ang_rate_delayed_raw{};	///< uncorrected angular rate vector at fusion time horizon (rad/sec)
 
 	stateSample _state{};		///< state struct of the ekf running at the delayed time horizon
+
 
 	bool _filter_initialised{false};	///< true when the EKF sttes and covariances been initialised
 
@@ -1091,6 +1143,7 @@ private:
  	float predict_force_z(const float mass, float total_thrust, const float accel_z);
  	void updateAccelZBuffer(float accel_z); 
     float filterAccelZ();
+	void force_derivative_test();
 #endif // CONFIG_EKF2_LOAD_CELL
 
 	void checkVerticalAccelerationHealth(const imuSample &imu_delayed);
