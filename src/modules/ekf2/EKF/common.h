@@ -287,6 +287,20 @@ struct stateSample {
 	Vector2f wind_vel{};            ///< horizontal wind velocity in earth frame in m/s
 };
 
+//VS: State sample struct for augmented states
+struct stateSample_Aug {
+	Quatf    quat_nominal{};        ///< quaternion defining the rotation from body to earth frame
+	Vector3f acc{};					///< body frame specific acceleration in m/s^2
+	Vector3f vel{};                 ///< NED velocity in earth frame in m/s
+	Vector3f pos{};                 ///< NED position in earth frame in m
+	Vector3f delta_ang_bias{};      ///< delta angle bias estimate in rad
+	Vector3f delta_vel_bias{};      ///< delta velocity bias estimate in m/s
+	Vector3f mag_I{};               ///< NED earth magnetic field in gauss
+	Vector3f mag_B{};               ///< magnetometer bias estimate in body frame in gauss
+	Vector2f wind_vel{};            ///< horizontal wind velocity in earth frame in m/s
+};
+
+
 struct parameters {
 
 	int32_t filter_update_interval_us{10000}; ///< filter update interval in microseconds
@@ -347,6 +361,8 @@ struct parameters {
 	int32_t mag_fusion_type{0};             ///< integer used to specify the type of magnetometer fusion used
 	float mag_acc_gate{0.5f};               ///< when in auto select mode, heading fusion will be used when manoeuvre accel is lower than this (m/sec**2)
 	float mag_yaw_rate_gate{0.20f};         ///< yaw rate threshold used by mode select logic (rad/sec)
+
+	float mass{2.0f};                     ///< mass of the vehicle (kg)
 
 #if defined(CONFIG_EKF2_GNSS_YAW)
 	// GNSS heading fusion

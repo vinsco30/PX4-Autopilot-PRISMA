@@ -235,6 +235,27 @@ void Ekf::constrainStates()
 	_state.wind_vel = matrix::constrain(_state.wind_vel, -100.0f, 100.0f);
 }
 
+//VS: constraint augmented statesstates 
+void Ekf::constrainStates_Aug()
+{
+	_state_aug.quat_nominal = matrix::constrain(_state_aug.quat_nominal, -1.0f, 1.0f);
+	_state_aug.vel = matrix::constrain(_state_aug.vel, -1000.0f, 1000.0f);
+	_state_aug.pos = matrix::constrain(_state_aug.pos, -1.e6f, 1.e6f);
+
+	//VS: adding constraints for the accelerations
+	_state_aug.acc = matrix::constrain(_state_aug.acc, -100.0f, 100.0f);
+
+	const float delta_ang_bias_limit = getGyroBiasLimit() * _dt_ekf_avg;
+	_state_aug.delta_ang_bias = matrix::constrain(_state_aug.delta_ang_bias, -delta_ang_bias_limit, delta_ang_bias_limit);
+
+	const float delta_vel_bias_limit = getAccelBiasLimit() * _dt_ekf_avg;
+	_state_aug.delta_vel_bias = matrix::constrain(_state_aug.delta_vel_bias, -delta_vel_bias_limit, delta_vel_bias_limit);
+
+	_state_aug.mag_I = matrix::constrain(_state_aug.mag_I, -1.0f, 1.0f);
+	_state_aug.mag_B = matrix::constrain(_state_aug.mag_B, -getMagBiasLimit(), getMagBiasLimit());
+	_state_aug.wind_vel = matrix::constrain(_state_aug.wind_vel, -100.0f, 100.0f);
+}
+
 float Ekf::compensateBaroForDynamicPressure(const float baro_alt_uncompensated) const
 {
 #if defined(CONFIG_EKF2_BARO_COMPENSATION)

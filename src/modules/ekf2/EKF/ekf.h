@@ -313,16 +313,16 @@ public:
 	matrix::SquareMatrix<float, 3> position_covariances() const { return P.slice<3, 3>(7, 7); }
 
 	//VS: get the orientation (quaterion) covariances from augmented states
-	matrix::SquareMatrix<float, 4> orientation_covariances() const { return P_aug.slice<4, 4>(0, 0); }
+	matrix::SquareMatrix<float, 4> orientation_covariances_aug() const { return P_aug.slice<4, 4>(0, 0); }
 
 	//VS: get the linear velocity covariances from augmented states
-	matrix::SquareMatrix<float, 3> velocity_covariances() const { return P_aug.slice<3, 3>(7, 7); }
+	matrix::SquareMatrix<float, 3> velocity_covariances_aug() const { return P_aug.slice<3, 3>(7, 7); }
 
 	//VS: get the position covariances from augmented states
-	matrix::SquareMatrix<float, 3> position_covariances() const { return P_aug.slice<3, 3>(10, 10); }
+	matrix::SquareMatrix<float, 3> position_covariances_aug() const { return P_aug.slice<3, 3>(10, 10); }
 
 	//VS: get the linear acceleration covariances from augmented states
-	matrix::SquareMatrix<float, 3> acceleration_covariances() const { return P_aug.slice<3, 3>(4, 4); }
+	matrix::SquareMatrix<float, 3> acceleration_covariances_aug() const { return P_aug.slice<3, 3>(4, 4); }
 
 	// ask estimator for sensor data collection decision and do any preprocessing if required, returns true if not defined
 	bool collect_gps(const gpsMessage &gps) override;
@@ -579,7 +579,7 @@ private:
 	void updateHorizontalDeadReckoningstatus();
 	void updateVerticalDeadReckoningStatus();
 
-	//TO ADD: it may be needed to add the subscription to actuator_motors, thrust ecc...
+	//VS: LOAD CELL subscribers and publishers initialization
 #if defined(CONFIG_EKF2_LOAD_CELL)
     uORB::Subscription actuator_motors_sub{ORB_ID(actuator_motors)};
 	uORB::Subscription actuator_outputs_sub{ORB_ID(actuator_outputs)};
@@ -598,7 +598,31 @@ private:
 		uint8_t quat{0};	///< number of quaternion reset events (allow to wrap if count exceeds 255)
 	};
 
+	//VS: Augmented state reset counts
+	struct StateResetCounts_Aug {
+		uint8_t accNE{0};	///< number of horizontal acceleration reset events (allow to wrap if count exceeds 255)
+		uint8_t accD{0};	///< number of vertical acceleration reset events (allow to wrap if count exceeds 255)
+		uint8_t velNE{0};	///< number of horizontal position reset events (allow to wrap if count exceeds 255)
+		uint8_t velD{0};	///< number of vertical velocity reset events (allow to wrap if count exceeds 255)
+		uint8_t posNE{0};	///< number of horizontal position reset events (allow to wrap if count exceeds 255)
+		uint8_t posD{0};	///< number of vertical position reset events (allow to wrap if count exceeds 255)
+		uint8_t quat{0};	///< number of quaternion reset events (allow to wrap if count exceeds 255)
+	};
+
 	struct StateResets {
+		Vector2f velNE_change;  ///< North East velocity change due to last reset (m)
+		float velD_change;	///< Down velocity change due to last reset (m/sec)
+		Vector2f posNE_change;	///< North, East position change due to last reset (m)
+		float posD_change;	///< Down position change due to last reset (m)
+		Quatf quat_change;	///< quaternion delta due to last reset - multiply pre-reset quaternion by this to get post-reset quaternion
+
+		StateResetCounts reset_count{};
+	};
+
+	//VS: Augmented state resets
+	struct StateResets_Aug {
+		Vector2f accNE_change;  ///< North East acceleration change due to last reset (m/s^2)
+		float accD_change;	///< Down acceleration change due to last reset (m/s^2)
 		Vector2f velNE_change;  ///< North East velocity change due to last reset (m)
 		float velD_change;	///< Down velocity change due to last reset (m/sec)
 		Vector2f posNE_change;	///< North, East position change due to last reset (m)
@@ -611,10 +635,17 @@ private:
 	StateResets _state_reset_status{};	///< reset event monitoring structure containing velocity, position, height and yaw reset information
 	StateResetCounts _state_reset_count_prev{};
 
+	//VS: Augmented state reset event monitoring structure containing velocity, position, height and yaw reset information
+	StateResets_Aug _state_reset_status_aug{};
+	StateResetCounts_Aug _state_reset_count_prev_aug{};
+
 	Vector3f _ang_rate_delayed_raw{};	///< uncorrected angular rate vector at fusion time horizon (rad/sec)
+	Vector3f _ang_rate_delayed_raw_aug{}; ///< VS: uncorrected angular rate vector at fusion time horizon (rad/sec) for augmented states
 
 	stateSample _state{};		///< state struct of the ekf running at the delayed time horizon
 
+	//VS: augmented state struct of the ekf running at the delayed time horizon
+	stateSample_Aug _state_aug{};
 
 	bool _filter_initialised{false};	///< true when the EKF sttes and covariances been initialised
 
@@ -639,6 +670,7 @@ private:
 	Vector3f _earth_rate_NED{};	///< earth rotation vector (NED) in rad/s
 
 	Dcmf _R_to_earth{};	///< transformation matrix from body frame to earth frame from last EKF prediction
+	Dcmf _R_to_earth_aug{}; ///< VS: rotation matrix from augmented states problem
 
 	// used by magnetometer fusion mode selection
 	Vector2f _accel_lpf_NE{};			///< Low pass filtered horizontal earth frame acceleration (m/sec**2)
@@ -655,6 +687,8 @@ private:
 	bool _synthetic_mag_z_active{false};	///< true if we are generating synthetic magnetometer Z measurements
 
 	SquareMatrix24f P{};	///< state covariance matrix
+	//VS: augmented state covariance matrix
+	SquareMatrix27f P_aug{};	///< state covariance matrix
 
 	Vector3f _delta_angle_bias_var_accum{};	///< kahan summation algorithm accumulator for delta angle bias variance
 	Vector3f _delta_vel_bias_var_accum{};   ///< kahan summation algorithm accumulator for delta velocity bias variance
@@ -664,8 +698,10 @@ private:
 	Vector2f _drag_innov_var{};	///< multirotor drag measurement innovation variance ((m/sec**2)**2)
 #endif // CONFIG_EKF2_DRAG_FUSION
 
+//VS: Load cell quantities initialization
+//TODO : check these quantites 
 #if defined(CONFIG_EKF2_LOAD_CELL)
-	float _load_innov{0.0f};	///< load cell measurement innovation (m)
+	float _load_innov{0.0f};	///< load cell measurement innovation 
 	float _load_innov_var{0.0f};	///< load cell measurement innovation variance ((m)**2)
 	float mea_force_z_filtered = 0.0f;	///< load cell measurement (m)
 	float alpha_load_cell_filter = 0.2f;	///< low pass filter time constant for load cell measurement (sec)
@@ -809,17 +845,31 @@ private:
 
 	float _height_rate_lpf{0.0f};
 
+	//VS: variables for accelerations computation
+	Vector3f _e3{0.0f, 0.0f, 1.0f};	///< unit vector in the Z direction
+	float _uT{0.0f};		///< thrust in the Z direction
+	Vector3f _omega{0.0f, 0.0f, 0.0f};	///< angular velocity vector (rad/sec)
+
+	//TODO: check these functions
 	// initialise filter states of both the delayed ekf and the real time complementary filter
 	bool initialiseFilter(void);
+	//VS: initialise augmented filter states of both the delayed ekf and the real time complementary filter
+	bool initialiseFilter_Aug(void);
 
 	// initialise ekf covariance matrix
 	void initialiseCovariance();
+	//VS: initialise augmented ekf covariance matrix
+	void initialiseCovariance_Aug();
 
 	// predict ekf state
 	void predictState(const imuSample &imu_delayed);
+	//VS: predict augmented ekf state
+	void predictState_Aug(const imuSample &imu_delayed);
 
 	// predict ekf covariance
 	void predictCovariance(const imuSample &imu_delayed);
+	//VS: predict augmented ekf covariance
+	void predictCovariance_Aug(const imuSample &imu_delayed);
 
 	// ekf sequential fusion of magnetometer measurements
 	bool fuseMag(const Vector3f &mag, estimator_aid_source3d_s &aid_src_mag, bool update_all_states = true);
@@ -1062,6 +1112,9 @@ private:
 
 	// constrain the ekf states
 	void constrainStates();
+
+	//VS: constrain the augmented ekf states
+	void constrainStates_Aug();
 
 	// generic function which will perform a fusion step given a kalman gain K
 	// and a scalar innovation value
@@ -1339,6 +1392,22 @@ private:
 
 		// if any of the innovations are rejected, then the overall innovation is rejected
 		status.innovation_rejected = innovation_rejected;
+	}
+	//VS: get the skew symmetric matrix from a vector
+	Matrix3f getSkewSymmetricMatrix(const Vector3f &v) const
+	{
+		Matrix3f skew_symm_matrix;
+		skew_symm_matrix(0, 0) = 0.0f;
+		skew_symm_matrix(0, 1) = -v(2);
+		skew_symm_matrix(0, 2) = v(1);
+		skew_symm_matrix(1, 0) = v(2);
+		skew_symm_matrix(1, 1) = 0.0f;
+		skew_symm_matrix(1, 2) = -v(0);
+		skew_symm_matrix(2, 0) = -v(1);
+		skew_symm_matrix(2, 1) = v(0);
+		skew_symm_matrix(2, 2) = 0.0f;
+
+		return skew_symm_matrix;
 	}
 };
 
