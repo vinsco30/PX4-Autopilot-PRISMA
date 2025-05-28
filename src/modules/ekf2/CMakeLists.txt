@@ -161,6 +161,8 @@ px4_add_module(
 
 		EKF2.cpp
 		EKF2.hpp
+		#EKF2_JERK.hpp
+		#EKF2_JERK.cpp
 		EKF2Selector.cpp
 		EKF2Selector.hpp
 

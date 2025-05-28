@@ -87,6 +87,7 @@ void Ekf::fuseLoadCell(const loadCellSample &loadCell_Sample,const float accel_z
 
 		//CALCOLO DEL THRUST
 	    float total_thrust = compute_thrust_z();
+		_uT_k = total_thrust;
 		/*Vector3f thrust_body(0.0f, 0.0f, total_thrust);
 		Vector3f thrust_NED = _state.quat_nominal.rotateVector(thrust_body);
 		total_thrust = thrust_NED(2);*/
@@ -98,10 +99,13 @@ void Ekf::fuseLoadCell(const loadCellSample &loadCell_Sample,const float accel_z
 
 
 		//MISURA ACCELERAZIONE Z
-	    float mea_force_z = -(loadCell_Sample.force(1) - bias_load_cell);
+	    float mea_force_z = (loadCell_Sample.force(1) - bias_load_cell);
 		mea_force_z_filtered = alpha_load_cell_filter * mea_force_z + (1.0f - alpha_load_cell_filter) * mea_force_z_filtered;
 		const float mea_acc = mea_force_z/mass;
 
+		float derivative_force_z = (mea_force_z_filtered - _prev_force_z) / _dt_ekf_avg;
+		_prev_force_z = mea_force_z;
+		// PX4_INFO("Test scope: _uT_k=%.4f", (double)_uT_k);
 
 		//CALCOLO INNOVAZIONE
         _load_innov = pred_acc - mea_acc;
@@ -129,7 +133,7 @@ void Ekf::fuseLoadCell(const loadCellSample &loadCell_Sample,const float accel_z
 	Vector24f Kfusion;
 	matrix::Matrix<float, 1, 24> H;
 
-	sym::ComputeLoadCellZInnovVarAndK(state_vector_prev, P, vel_z_old, R_FORCE, _dt_ekf_avg,total_thrust, mass, FLT_EPSILON, &H, &_load_innov_var, &Kfusion);
+	sym::ComputeLoadCellZInnovVarAndK(state_vector_prev, P, vel_z_old, /fmu/in/load_cell_dataR_FORCE, _dt_ekf_avg,total_thrust, mass, FLT_EPSILON, &H, &_load_innov_var, &Kfusion);
 	*/
 
 
@@ -150,9 +154,9 @@ void Ekf::fuseLoadCell(const loadCellSample &loadCell_Sample,const float accel_z
 	struct external_wrench_estimation_s wrench_estimation = {};
 
 	wrench_estimation.timestamp = loadCell_Sample.time_us; // Tempo corrente
-	wrench_estimation.force_x = 0.0f;                  // Forza su X (fissata a 0)
-	wrench_estimation.force_y = mea_acc;                  // Forza su Y (fissata a 0)
-	wrench_estimation.force_z = estimated_force_z;     // Forza stimata su Z
+	wrench_estimation.force_x = derivative_force_z;                  // Forza su X (fissata a 0)
+	wrench_estimation.force_y = mea_force_z;                  // Forza su Y (fissata a 0)
+	wrench_estimation.force_z = mea_force_z_filtered;     // Forza stimata su Z
 	wrench_estimation.torque_x = total_thrust;                 // Momento torcente su X
 	wrench_estimation.torque_y = accel_z*mass;                 // Momento torcente su Y
 	wrench_estimation.torque_z = gravity_force;                 // Momento torcente su Z

@@ -399,6 +399,7 @@ protected:
 #if defined(CONFIG_EKF2_LOAD_CELL)
 	RingBuffer<loadCellSample> *_load_cell_buffer{nullptr};
 	float prev_state_vel_z{};
+	float _prev_force_z{0.0f};
 	float _loadCell_test_ratio{0.0f};
 #endif // CONFIG_EKF2_LOAD_CELL
 

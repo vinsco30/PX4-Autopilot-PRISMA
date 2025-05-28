@@ -257,7 +257,21 @@ void Ekf::constrainStates_Aug()
 }
 
 float Ekf::compensateBaroForDynamicPressure(const float baro_alt_uncompensated) const
-{
+{	
+	// if the baro is not valid, return the uncompensated value
+	if (!local_position_is_valid()) {
+		return baro_alt_uncompensated;
+	}
+
+	// if the wind is not valid, return the uncompensated value
+	if (!_control_status.flags.wind) {
+		return baro_alt_uncompensated;
+	}
+
+	// if the air density is not valid, return the uncompensated value
+	if (!PX4_ISFINITE(_air_density)) {
+		return baro_alt_uncompensated;
+	}
 #if defined(CONFIG_EKF2_BARO_COMPENSATION)
 	if (_control_status.flags.wind && local_position_is_valid()) {
 		// calculate static pressure error = Pmeas - Ptruth

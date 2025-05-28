@@ -312,18 +312,6 @@ public:
 	// get the position covariances
 	matrix::SquareMatrix<float, 3> position_covariances() const { return P.slice<3, 3>(7, 7); }
 
-	//VS: get the orientation (quaterion) covariances from augmented states
-	matrix::SquareMatrix<float, 4> orientation_covariances_aug() const { return P_aug.slice<4, 4>(0, 0); }
-
-	//VS: get the linear velocity covariances from augmented states
-	matrix::SquareMatrix<float, 3> velocity_covariances_aug() const { return P_aug.slice<3, 3>(7, 7); }
-
-	//VS: get the position covariances from augmented states
-	matrix::SquareMatrix<float, 3> position_covariances_aug() const { return P_aug.slice<3, 3>(10, 10); }
-
-	//VS: get the linear acceleration covariances from augmented states
-	matrix::SquareMatrix<float, 3> acceleration_covariances_aug() const { return P_aug.slice<3, 3>(4, 4); }
-
 	// ask estimator for sensor data collection decision and do any preprocessing if required, returns true if not defined
 	bool collect_gps(const gpsMessage &gps) override;
 
@@ -356,13 +344,6 @@ public:
 	Vector3f getVelocityVariance() const { return P.slice<3, 3>(4, 4).diag(); };
 
 	Vector3f getPositionVariance() const { return P.slice<3, 3>(7, 7).diag(); }
-
-	//VS: get the velocity variance vector from augmented states
-	Vector3f getVelocityVariance_Aug() const { return P_aug.slice<3, 3>(7, 7).diag(); };
-	//VS: get the position variance vector from augmented states
-	Vector3f getPositionVariance_Aug() const { return P_aug.slice<3, 3>(10, 10).diag(); }
-	//VS: get the acceleration variance vector from augmented states
-	Vector3f getAccelerationVariance_Aug() const { return P_aug.slice<3, 3>(4, 4).diag(); }
 
 	// First argument returns GPS drift  metrics in the following array locations
 	// 0 : Horizontal position drift rate (m/s)
@@ -410,17 +391,12 @@ public:
 	Vector3f getGyroBias() const { return _state.delta_ang_bias / _dt_ekf_avg; } // get the gyroscope bias in rad/s
 	Vector3f getGyroBiasVariance() const { return Vector3f{P(10, 10), P(11, 11), P(12, 12)} / sq(_dt_ekf_avg); } // get the gyroscope bias variance in rad/s
 	float getGyroBiasLimit() const { return _params.gyro_bias_lim; }
-	//VS: gyro bias (states 13, 14, 15) from augmented states
-	Vector3f getGyroBias_Aug() const { return _state_aug.delta_ang_bias / _dt_ekf_avg; }
-	Vector3f getGyroBiasVariance_Aug() const { return Vector3f{P_aug(13, 13), P_aug(14, 14), P_aug(14, 14)} / sq(_dt_ekf_avg); }
+
 
 	// accel bias (states 13, 14, 15)
 	Vector3f getAccelBias() const { return _state.delta_vel_bias / _dt_ekf_avg; } // get the accelerometer bias in m/s**2
 	Vector3f getAccelBiasVariance() const { return Vector3f{P(13, 13), P(14, 14), P(15, 15)} / sq(_dt_ekf_avg); } // get the accelerometer bias variance in m/s**2
 	float getAccelBiasLimit() const { return _params.acc_bias_lim; }
-	//VS: accel bias (states 16, 17, 18) from augmented states
-	Vector3f getAccelBias_Aug() const { return _state_aug.delta_vel_bias / _dt_ekf_avg; }
-	Vector3f getAccelBiasVariance_Aug() const { return Vector3f{P_aug(16, 16), P_aug(17, 17), P_aug(18, 18)} / sq(_dt_ekf_avg); }
 
 	// mag bias (states 19, 20, 21)
 	const Vector3f &getMagBias() const { return _state.mag_B; }
@@ -433,27 +409,16 @@ public:
 		return _saved_mag_bf_variance;
 	}
 	float getMagBiasLimit() const { return 0.5f; } // 0.5 Gauss
-	//VS: mag bias (states 22, 23, 24) from augmented states
-	const Vector3f &getMagBias_Aug() const { return _state_aug.mag_B; }
-	Vector3f getMagBiasVariance_Aug() const
-	{
-		if (_control_status.flags.mag_3D) {
-			return Vector3f{P_aug(22, 22), P_aug(23, 23), P_aug(24, 24)};
-		}
-
-		return _saved_mag_bf_variance;
-	}
 
 	bool accel_bias_inhibited() const { return _accel_bias_inhibit[0] || _accel_bias_inhibit[1] || _accel_bias_inhibit[2]; }
 	bool gyro_bias_inhibited() const { return _gyro_bias_inhibit[0] || _gyro_bias_inhibit[1] || _gyro_bias_inhibit[2]; }
-	//TODO
-	//VS: CHECK if _state_reset_status is needed
+
 	const auto &state_reset_status() const { return _state_reset_status; }
 
 	// return the amount the local vertical position changed in the last reset and the number of reset events
 	uint8_t get_posD_reset_count() const { return _state_reset_status.reset_count.posD; }
 	void get_posD_reset(float *delta, uint8_t *counter) const
-	{
+	{	
 		*delta = _state_reset_status.posD_change;
 		*counter = _state_reset_status.reset_count.posD;
 	}
@@ -847,7 +812,8 @@ private:
 
 	//VS: variables for accelerations computation
 	Vector3f _e3{0.0f, 0.0f, 1.0f};	///< unit vector in the Z direction
-	float _uT{0.0f};		///< thrust in the Z direction
+	float _uT_k{0.0f};		///< thrust in the Z direction at instant k
+	float _uT_k_1{0.0f};	///< thrust in the Z direction at instant k-1
 	Vector3f _omega{0.0f, 0.0f, 0.0f};	///< angular velocity vector (rad/sec)
 
 	//TODO: check these functions

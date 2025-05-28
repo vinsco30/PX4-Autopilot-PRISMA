@@ -378,6 +378,10 @@ void Ekf::predictState_Aug(const imuSample &imu_delayed)
 	// save the previous value of velocity so we can use trapzoidal integration
 	const Vector3f vel_last = _state_aug.vel;
 
+	// VS: calculate the derivative of the commanded thrust
+	const float d_uT = (_uT_k - _uT_k_1)/imu_delayed.delta_vel_dt;
+	_uT_k_1 = _uT_k; // save the previous thrust value
+	PX4_INFO("Test scope: d_uT=%.4f", (double)d_uT);
 	// calculate the increment in velocity using the current orientation
 	_state_aug.vel += corrected_delta_vel_ef;
 
@@ -388,7 +392,7 @@ void Ekf::predictState_Aug(const imuSample &imu_delayed)
 	_state_aug.pos += (vel_last + _state_aug.vel) * imu_delayed.delta_vel_dt * 0.5f;
 
 	//VS: add prediction of the accelerations
-	_state_aug.acc += ((-_uT/_params.mass* _R_to_earth_aug * _e3) - (_uT/_params.mass * getSkewSymmetricMatrix( _omega ) * _R_to_earth_aug * _e3)) * imu_delayed.delta_vel_dt;
+	_state_aug.acc += ((-d_uT/_params.mass* _R_to_earth_aug * _e3) - (_uT_k/_params.mass * getSkewSymmetricMatrix( _omega ) * _R_to_earth_aug * _e3)) * imu_delayed.delta_vel_dt;
 
 	constrainStates_Aug();
 
